@@ -1,21 +1,12 @@
 package main
 
 import (
-	"bufio"
+	"aoc2021/shared"
 	"errors"
 	"fmt"
-	"io"
-	"log"
-	"os"
 	"strconv"
 	"strings"
 )
-
-func handle(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
 
 type bingoField struct {
 	value int
@@ -23,6 +14,15 @@ type bingoField struct {
 }
 
 type bingoBoard [5][5]bingoField
+
+func newBingoBoard(numbers [][]int) (b bingoBoard) {
+	for i, row := range numbers {
+		for j, number := range row {
+			b[i][j].value = number
+		}
+	}
+	return
+}
 
 func (b *bingoBoard) playGame(numbers []int) (won bool, score int) {
 	for _, number := range numbers {
@@ -94,53 +94,18 @@ func (b bingoBoard) checkColumnForWin(columnNumber int) (won bool) {
 	return
 }
 
-func newBingoBoard(numbers [][]int) (b bingoBoard) {
-	for i, row := range numbers {
-		for j, number := range row {
-			b[i][j].value = number
-		}
-	}
-	return
-}
-
-func parseInputFile(filePath string) (numbers []int, boards []bingoBoard, err error) {
-	reader, err := os.Open(filePath)
-	if err != nil {
-		return
-	}
-	defer reader.Close()
-
-	lines := readLines(reader)
+func parseLines(lines []string) (numbers []int, boards []bingoBoard) {
 	stripped := removeEmptyLines(lines)
-	numbers = getNumbersFromLine(stripped[0], ",")
+	numbers = parseNumbers(stripped[0], ",")
 
-	boardLines := stripped[1:]
-	if len(boardLines)%5 != 0 {
-		err = errors.New("garbage lines in input file")
+	remaining := stripped[1:]
+	if len(remaining)%5 != 0 {
+		shared.Handle(errors.New("garbage lines in input file"))
 		return
 	}
-	for i := 0; i <= len(boardLines)-5; i += 5 {
-		nextFiveLines := boardLines[i : i+5]
-		boards = append(boards, getBoardFromLines(nextFiveLines))
-	}
-	return
-}
-
-func readLines(reader io.Reader) (lines []string) {
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	return
-}
-
-func getNumbersFromLine(line string, separator string) (numbers []int) {
-	numberStrings := strings.Split(line, separator)
-	for _, s := range numberStrings {
-		number, err := strconv.Atoi(s)
-		if err == nil {
-			numbers = append(numbers, number)
-		}
+	for i := 0; i <= len(remaining)-5; i += 5 {
+		boardLines := remaining[i : i+5]
+		boards = append(boards, getBoardFromLines(boardLines))
 	}
 	return
 }
@@ -148,10 +113,22 @@ func getNumbersFromLine(line string, separator string) (numbers []int) {
 func getBoardFromLines(lines []string) (b bingoBoard) {
 	var rows [][]int
 	for _, line := range lines {
-		row := getNumbersFromLine(line, " ")
+		row := parseNumbers(line, " ")
 		rows = append(rows, row)
 	}
 	b = newBingoBoard(rows)
+	return
+}
+
+func parseNumbers(line, separator string) (numbers []int) {
+	line = strings.Trim(line, " ")
+	line = strings.ReplaceAll(line, "  ", " ")
+	numberStrings := strings.Split(line, separator)
+	for _, s := range numberStrings {
+		number, err := strconv.Atoi(s)
+		shared.Handle(err)
+		numbers = append(numbers, number)
+	}
 	return
 }
 
@@ -165,9 +142,8 @@ func removeEmptyLines(lines []string) (stripped []string) {
 }
 
 func main() {
-	inputFile := "bingo.txt"
-	numbers, boards, err := parseInputFile(inputFile)
-	handle(err)
+	lines := shared.ParseInputFile("input.txt")
+	numbers, boards := parseLines(lines)
 
 	fmt.Printf("Playing %d numbers for %d boards.\n", len(numbers), len(boards))
 	remaining := make([]int, len(boards))
