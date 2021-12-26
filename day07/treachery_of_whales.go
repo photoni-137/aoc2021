@@ -1,88 +1,74 @@
 package main
 
 import (
-	"bufio"
+	"aoc2021/shared"
 	"fmt"
-	"log"
-	"os"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
 )
 
-func main() {
-	inputFile := "crabs.txt"
-	positions, err := parseInputFile(inputFile)
-	handle(err)
-
-	sortedPositions := sort.IntSlice(positions)
-	sortedPositions.Sort()
-	lower, upper := boundaries(sortedPositions)
-	fuelCosts := make(map[int]int)
-	for point := lower; point <= upper; point++ {
-		fuelCosts[point] = totalFuel(sortedPositions, point)
-	}
-	minimum := fuelCosts[0]
-	fmt.Printf("Initial fuel cost: %d at point %d.\n", fuel, 0)
-	for point, fuel := range fuelCosts {
-		if fuel < minimum {
-			minimum = fuel
-			fmt.Printf("New minimal fuel cost: %d at point %d.\n", fuel, point)
-		}
-	}
-	fmt.Println("That's the best one!")
-}
-
-func handle(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func parseInputFile(filePath string) (positions []int, err error) {
-	reader, err := os.Open(filePath)
-	if err != nil {
-		return
-	}
-	defer reader.Close()
-
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		positions, err = parsePositions(scanner.Text())
-	}
-	return
-}
-
-func parsePositions(input string) (positions []int, err error) {
-	for _, s := range strings.Split(input, ",") {
-		var position int
-		position, err = strconv.Atoi(s)
-		if err != nil {
-			return
-		}
+func parsePositions(line string) (positions []int) {
+	for _, s := range strings.Split(line, ",") {
+		position, err := strconv.Atoi(s)
+		shared.Handle(err)
 		positions = append(positions, position)
 	}
 	return
 }
 
-func fuel(x, y int) (f int) {
-	distance := x - y
-	if distance < 0 {
-		distance = -distance
+func distance(x, y int) (dist int) {
+	dist = x - y
+	if dist < 0 {
+		dist = -dist
 	}
-	f = distance * (distance + 1) / 2
 	return
 }
 
-func totalFuel(positions []int, point int) (sum int) {
+func totalFuel(positions []int, target int, fuelCost func(int) int) (sum int) {
 	for _, position := range positions {
-		sum += fuel(position, point)
+		dist := distance(position, target)
+		sum += fuelCost(dist)
 	}
 	return
 }
 
-func boundaries(sortedPositions sort.IntSlice) (lo, hi int) {
+func boundaries(positions []int) (lo, hi int) {
+	sortedPositions := sort.IntSlice(positions)
+	sortedPositions.Sort()
 	lo = sortedPositions[0]
 	hi = sortedPositions[len(sortedPositions)-1]
 	return
+}
+
+func optimalPosition(positions []int, fuelCost func(int) int) (target, minimalFuel int) {
+	lower, upper := boundaries(positions)
+	fuelCosts := make(map[int]int)
+	for point := lower; point <= upper; point++ {
+		fuelCosts[point] = totalFuel(positions, point, fuelCost)
+	}
+
+	target, minimalFuel = -1, math.MaxInt
+	for point, fuel := range fuelCosts {
+		if fuel < minimalFuel {
+			target, minimalFuel = point, fuel
+		}
+	}
+	return
+}
+
+func main() {
+	lines := shared.ParseInputFile("input.txt")
+	positions := parsePositions(lines[0])
+
+	simpleFuel := func(d int) int { return d }
+	target, fuel := optimalPosition(positions, simpleFuel)
+	fmt.Printf("Assuming the simplest model, the optimal point is at x = %d, costing %d units of fuel.\n",
+		target, fuel)
+
+	gaussFuel := func(d int) int { return d * (d + 1) / 2 }
+	target, fuel = optimalPosition(positions, gaussFuel)
+	fmt.Printf("Given the more complex model, the optimal point is at x = %d, costing %d units of fuel.\n",
+		target, fuel)
 }
