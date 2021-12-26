@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
+	"aoc2021/shared"
 	"fmt"
-	"log"
-	"os"
 	"strconv"
 )
 
@@ -13,23 +11,23 @@ type Dumbo struct {
 	flashed bool
 }
 
+type Point struct{ x, y int }
+
+type Grid [][]Dumbo
+
 func (d Dumbo) CanFlash() bool {
 	return !d.flashed && d.energy > 9
 }
 
-type Point struct{ x, y int }
-
-func (p Point) IsValid() bool {
-	validX := p.x >= 0 && p.x < 10
-	validY := p.y >= 0 && p.y < 10
-	return validX && validY
+func (g Grid) At(p Point) *Dumbo {
+	return &g[p.x][p.y]
 }
 
-func (p Point) Neighbors() (neighbors []Point) {
+func (g Grid) Neighbors(p Point) (neighbors []Point) {
 	for dx := -1; dx <= 1; dx++ {
 		for dy := -1; dy <= 1; dy++ {
 			neighbor := Point{p.x + dx, p.y + dy}
-			if neighbor.IsValid() && neighbor != p {
+			if g.ValidPoint(neighbor) && neighbor != p {
 				neighbors = append(neighbors, Point{p.x + dx, p.y + dy})
 			}
 		}
@@ -37,11 +35,11 @@ func (p Point) Neighbors() (neighbors []Point) {
 	return
 }
 
-type Row []Dumbo
-type Grid []Row
-
-func (g Grid) At(p Point) *Dumbo {
-	return &g[p.x][p.y]
+func (g Grid) ValidPoint(p Point) bool {
+	xMax, yMax := len(g), len(g[0])
+	validX := p.x >= 0 && p.x < xMax
+	validY := p.y >= 0 && p.y < yMax
+	return validX && validY
 }
 
 func (g Grid) Reset() {
@@ -63,7 +61,7 @@ func (g Grid) increaseEnergy() {
 }
 
 func (g Grid) Flash(p Point) {
-	for _, neighbor := range p.Neighbors() {
+	for _, neighbor := range g.Neighbors(p) {
 		g.At(neighbor).energy++
 	}
 	g.At(p).flashed = true
@@ -105,47 +103,29 @@ func (g Grid) IsSynchronized() bool {
 	return true
 }
 
-func handle(err error) {
-	if err != nil {
-		log.Fatal(err)
-	}
-}
-
-func parseInputFile(filePath string) (grid Grid, err error) {
-	reader, err := os.Open(filePath)
-	if err != nil {
-		return
-	}
-	defer reader.Close()
-
-	scanner := bufio.NewScanner(reader)
-	for scanner.Scan() {
-		var row Row
-		for _, r := range scanner.Text() {
-			var number int
-			number, err = strconv.Atoi(string(r))
-			if err != nil {
-				return
-			}
-			row = append(row, Dumbo{number, false})
+func parseGrid(lines []string) (grid Grid) {
+	grid = make(Grid, len(lines))
+	for i, line := range lines {
+		grid[i] = make([]Dumbo, len(line))
+		for j, r := range line {
+			number, err := strconv.Atoi(string(r))
+			shared.Handle(err)
+			grid[i][j] = Dumbo{number, false}
 		}
-		grid = append(grid, row)
 	}
 	return
 }
 
 func main() {
-	inputFile := "grid.txt"
-	grid, err := parseInputFile(inputFile)
-	handle(err)
+	lines := shared.ParseInputFile("input.txt")
+	grid := parseGrid(lines)
 
-	flashes := 0
-	step := 0
+	flashes, step := 0, 0
 	for !grid.IsSynchronized() {
-		flashes += grid.Evolve()
 		if step == 100 {
 			fmt.Printf("%d flashes after 100 steps.\n", flashes)
 		}
+		flashes += grid.Evolve()
 		step++
 	}
 	fmt.Printf("Synchronized after %d steps!\n", step)
