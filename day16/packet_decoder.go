@@ -89,62 +89,6 @@ func (p Packet) EqualTo() int {
 	return 0
 }
 
-func parseLines(lines []string) string {
-	var sb strings.Builder
-	line := lines[0]
-	for _, r := range line {
-		number, err := strconv.ParseInt(string(r), 16, 64)
-		shared.Handle(err)
-		sb.WriteString(fmt.Sprintf("%04b", number))
-	}
-	return sb.String()
-}
-
-func popPacket(bits *string) (packet Packet, success bool) {
-	if isOnlyZeros(*bits) {
-		return
-	}
-
-	version := popInt(bits, 3)
-	typeId := popInt(bits, 3)
-	packet = Packet{version, typeId, 0, []*Packet{}}
-
-	switch typeId {
-	case 4:
-		var sb strings.Builder
-		stop := false
-		for !stop {
-			stop = popInt(bits, 1) == 0
-			sb.WriteString(popString(bits, 4))
-		}
-		packet.value = toInt(sb.String())
-	default:
-		lengthType := popInt(bits, 1)
-		switch lengthType {
-		case 0:
-			totalLength := popInt(bits, 15)
-			bitsToParse := popString(bits, totalLength)
-			for {
-				child, found := popPacket(&bitsToParse)
-				if !found {
-					break
-				}
-				packet.children = append(packet.children, &child)
-			}
-		case 1:
-			targets := popInt(bits, 11)
-			for i := 0; i < targets; i++ {
-				child, _ := popPacket(bits)
-				packet.children = append(packet.children, &child)
-			}
-		}
-	}
-
-	(&packet).Evaluate()
-	success = true
-	return
-}
-
 func isOnlyZeros(s string) bool {
 	for _, r := range s {
 		if r != '0' {
@@ -162,29 +106,96 @@ func popString(bits *string, n int) string {
 
 func popInt(bits *string, n int) int {
 	popped := popString(bits, n)
-	return toInt(popped)
+	return bitsToInt(popped)
 }
 
-func toInt(bits string) int {
+func bitsToInt(bits string) int {
 	number, err := strconv.ParseInt(bits, 2, 64)
 	shared.Handle(err)
 	return int(number)
 }
 
+func popPacket(bits *string) (p Packet, success bool) {
+	if isOnlyZeros(*bits) {
+		return
+	}
+
+	version := popInt(bits, 3)
+	typeId := popInt(bits, 3)
+	p = Packet{version, typeId, 0, []*Packet{}}
+
+	switch typeId {
+	case 4:
+		var sb strings.Builder
+		stop := false
+		for !stop {
+			stop = popInt(bits, 1) == 0
+			sb.WriteString(popString(bits, 4))
+		}
+		p.value = bitsToInt(sb.String())
+	default:
+		lengthType := popInt(bits, 1)
+		switch lengthType {
+		case 0:
+			totalLength := popInt(bits, 15)
+			bitsToParse := popString(bits, totalLength)
+			for {
+				child, found := popPacket(&bitsToParse)
+				if !found {
+					break
+				}
+				p.children = append(p.children, &child)
+			}
+		case 1:
+			targets := popInt(bits, 11)
+			for i := 0; i < targets; i++ {
+				child, _ := popPacket(bits)
+				p.children = append(p.children, &child)
+			}
+		}
+	}
+
+	(&p).Evaluate()
+	success = true
+	return
+}
+
+func versionSum(p Packet) (sum int) {
+	queue := []*Packet{&p}
+	for len(queue) > 0 {
+		packet := queue[0]
+		sum += packet.version
+		queue = append(queue[1:], packet.children...)
+	}
+	return
+}
+
+func parseTransmission(lines []string) string {
+	var sb strings.Builder
+	line := lines[0]
+	for _, r := range line {
+		number, err := strconv.ParseInt(string(r), 16, 64)
+		shared.Handle(err)
+		sb.WriteString(fmt.Sprintf("%04b", number))
+	}
+	return sb.String()
+}
+
 func main() {
 	lines := shared.ParseInputFile("input.txt")
-	bitstream := parseLines(lines)
+	transmission := parseTransmission(lines)
 
 	var packets []Packet
 	for {
-		packet, found := popPacket(&bitstream)
+		packet, found := popPacket(&transmission)
 		if !found {
 			break
 		}
 		packets = append(packets, packet)
 	}
 
-	for _, packet := range packets {
-		fmt.Println(packet.value)
+	for i, packet := range packets {
+		fmt.Printf("Packet number %d has a version sum of %d and evaluates to %d.\n",
+			i+1, versionSum(packet), packet.value)
 	}
 }
