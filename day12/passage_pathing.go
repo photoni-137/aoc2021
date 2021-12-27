@@ -7,54 +7,49 @@ import (
 )
 
 type Path []string
+
 type ExtendedPath struct {
-	path      Path
-	exception bool
-}
-type Caves map[string]*Cave
-type Cave struct {
-	neighbors []string
-	isSmall   bool
+	path          Path
+	usedException bool
 }
 
-func (c Caves) addIfNew(names []string) {
+type Cave struct {
+	neighbors []string
+	isLarge   bool
+}
+
+type CaveSystem map[string]*Cave
+
+func (p Path) Current() string {
+	return p[len(p)-1]
+}
+
+func (p Path) Copy() Path {
+	return append(Path(nil), p...)
+}
+
+func (cs CaveSystem) AddIfNew(names []string) {
 	for _, name := range names {
-		if _, found := c[name]; !found {
-			c[name] = newCave(name)
+		if _, found := cs[name]; !found {
+			cs[name] = newCave(name)
 		}
 	}
 }
 
-func newCave(name string) (cave *Cave) {
-	cave = new(Cave)
-	cave.isSmall = isLowercase(name)
-	return
+func (cs CaveSystem) Connect(this, that string) {
+	cs[this].neighbors = append(cs[this].neighbors, that)
+	cs[that].neighbors = append(cs[that].neighbors, this)
 }
 
-func isLowercase(s string) bool {
-	if strings.ToLower(s) == s {
-		return true
-	}
-	return false
-}
-
-func (c Caves) connect(thisName, thatName string) {
-	this, that := c[thisName], c[thatName]
-	this.neighbors = append(this.neighbors, thatName)
-	that.neighbors = append(that.neighbors, thisName)
-}
-
-func (c Caves) constructPaths() (finishedPaths []Path) {
-	var unfinishedPaths []Path
-	unfinishedPaths = append(unfinishedPaths, Path{"start"})
+func (cs CaveSystem) ConstructPaths() (finishedPaths []Path) {
+	unfinishedPaths := []Path{{"start"}}
 	for len(unfinishedPaths) > 0 {
 		var newPaths []Path
-		for _, path := range unfinishedPaths {
-			currentName := path[len(path)-1]
-			for _, neighbor := range c[currentName].neighbors {
-				if c.validPath(path, neighbor) {
-					newPath := append(Path(nil), path...)
-					newPath = append(newPath, neighbor)
+		for _, p := range unfinishedPaths {
+			current := p.Current()
+			for _, neighbor := range cs[current].neighbors {
+				if cs.ValidPath(p, neighbor) {
+					newPath := append(p.Copy(), neighbor)
 					if neighbor == "end" {
 						finishedPaths = append(finishedPaths, newPath)
 					} else {
@@ -63,13 +58,13 @@ func (c Caves) constructPaths() (finishedPaths []Path) {
 				}
 			}
 		}
-		unfinishedPaths = append([]Path(nil), newPaths...)
+		unfinishedPaths = newPaths
 	}
 	return
 }
 
-func (c Caves) validPath(p Path, target string) bool {
-	if !c[target].isSmall {
+func (cs CaveSystem) ValidPath(p Path, target string) bool {
+	if cs[target].isLarge {
 		return true
 	}
 	for _, name := range p {
@@ -80,17 +75,19 @@ func (c Caves) validPath(p Path, target string) bool {
 	return true
 }
 
-func (c Caves) constructExtendedPaths() (finishedPaths []ExtendedPath) {
-	var unfinishedPaths []ExtendedPath
-	unfinishedPaths = append(unfinishedPaths, ExtendedPath{Path{"start"}, false})
+func (cs CaveSystem) ConstructExtendedPaths() (finishedPaths []ExtendedPath) {
+	unfinishedPaths := []ExtendedPath{{Path{"start"}, false}}
 	for len(unfinishedPaths) > 0 {
 		var newPaths []ExtendedPath
-		for _, path := range unfinishedPaths {
-			currentName := path.path[len(path.path)-1]
-			for _, neighbor := range c[currentName].neighbors {
-				if isValid, usedException := c.validExtendedPath(path, neighbor); isValid {
-					newPath := ExtendedPath{append(Path(nil), path.path...), usedException}
-					newPath.path = append(newPath.path, neighbor)
+		for _, ep := range unfinishedPaths {
+			current := ep.path.Current()
+			for _, neighbor := range cs[current].neighbors {
+				isValid, usedException := cs.ValidExtendedPath(ep, neighbor)
+				if isValid {
+					newPath := ExtendedPath{
+						path:          append(ep.path.Copy(), neighbor),
+						usedException: usedException,
+					}
 					if neighbor == "end" {
 						finishedPaths = append(finishedPaths, newPath)
 					} else {
@@ -99,55 +96,63 @@ func (c Caves) constructExtendedPaths() (finishedPaths []ExtendedPath) {
 				}
 			}
 		}
-		unfinishedPaths = append([]ExtendedPath(nil), newPaths...)
+		unfinishedPaths = newPaths
 	}
 	return
 }
 
-func (c Caves) validExtendedPath(p ExtendedPath, target string) (isValid, usedException bool) {
-	usedException = p.exception
-	if !c[target].isSmall {
+func (cs CaveSystem) ValidExtendedPath(ep ExtendedPath, target string) (isValid, usedException bool) {
+	usedException = ep.usedException
+	if target == "start" {
+		return
+	}
+	if cs[target].isLarge || target == "end" {
 		isValid = true
 		return
 	}
-	switch target {
-	case "start":
-		return
-	case "end":
-		isValid = true
-		return
-	default:
-		for _, name := range p.path {
-			if name == target {
-				if usedException {
-					return
-				}
-				usedException = true
+	for _, name := range ep.path {
+		if name == target {
+			if usedException {
+				return
 			}
+			usedException = true
 		}
 	}
 	isValid = true
 	return
 }
 
-func linesToCaves(lines []string) Caves {
-	caves := make(Caves)
+func newCave(name string) (cave *Cave) {
+	cave = new(Cave)
+	cave.isLarge = isUppercase(name)
+	return
+}
+
+func isUppercase(s string) bool {
+	if strings.ToUpper(s) == s {
+		return true
+	}
+	return false
+}
+
+func parseCaveSystem(lines []string) CaveSystem {
+	caves := make(CaveSystem)
 	for _, line := range lines {
 		names := strings.Split(line, "-")
 		from, to := names[0], names[1]
-		caves.addIfNew([]string{from, to})
-		caves.connect(from, to)
+		caves.AddIfNew([]string{from, to})
+		caves.Connect(from, to)
 	}
 	return caves
 }
 
 func main() {
-	lines := shared.ParseInputFile("paths.txt")
-	caves := linesToCaves(lines)
+	lines := shared.ParseInputFile("input.txt")
+	caveSystem := parseCaveSystem(lines)
 
-	paths := caves.constructPaths()
+	paths := caveSystem.ConstructPaths()
 	fmt.Printf("Found %d valid paths.\n", len(paths))
 
-	extendedPaths := caves.constructExtendedPaths()
+	extendedPaths := caveSystem.ConstructExtendedPaths()
 	fmt.Printf("Extending the rules, we found %d valid paths.\n", len(extendedPaths))
 }
