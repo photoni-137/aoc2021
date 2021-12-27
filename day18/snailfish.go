@@ -149,8 +149,7 @@ func main() {
 	for _, number := range numbers[1:] {
 		sum = sum.Plus(number)
 	}
-	fmt.Println("All summed up!")
-	fmt.Println("Magnitude:", sum.Magnitude())
+	fmt.Printf("The sum of all snail numbers has a magnitude of %d.\n", sum.Magnitude())
 
 	highestSum := 0
 	for i, this := range numbers[:len(numbers)-1] {
@@ -162,5 +161,5 @@ func main() {
 			}
 		}
 	}
-	fmt.Println("Highest possible sum of two snail numbers:", highestSum)
+	fmt.Printf("The highest possible sum of two snail numbers is %d.\n", highestSum)
 }
