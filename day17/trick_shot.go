@@ -59,13 +59,13 @@ func (p Probe) Behind(target Area) bool {
 	return overX || overY
 }
 
-func MinimumVelocity(target Area) (v Coordinates) {
+func minimumVelocity(target Area) (v Coordinates) {
 	v.x = int(solveVx(target.lowerLeft)) + 1
 	v.y = target.lowerLeft.y
 	return
 }
 
-func MaximumVelocity(target Area) (v Coordinates) {
+func maximumVelocity(target Area) (v Coordinates) {
 	v.x = target.upperRight.x
 	v.y = -target.lowerLeft.y - 1
 	return
@@ -77,14 +77,14 @@ func solveVx(target Coordinates) float64 {
 }
 
 func maxHeight(target Area) int {
-	return GaussSum(MaximumVelocity(target).y)
+	return GaussSum(maximumVelocity(target).y)
 }
 
 func GaussSum(n int) int {
 	return n * (n + 1) / 2
 }
 
-func parseLines(lines []string) (target Area) {
+func parseTarget(lines []string) (target Area) {
 	_, err := fmt.Sscanf(lines[0], "target area: x=%d..%d, y=%d..%d",
 		&target.lowerLeft.x, &target.upperRight.x, &target.lowerLeft.y, &target.upperRight.y)
 	shared.Handle(err)
@@ -93,23 +93,20 @@ func parseLines(lines []string) (target Area) {
 
 func main() {
 	lines := shared.ParseInputFile("input.txt")
-	target := parseLines(lines)
+	target := parseTarget(lines)
 
 	var velocities []Coordinates
 	start := Coordinates{0, 0}
-	min, max := MinimumVelocity(target), MaximumVelocity(target)
+	min, max := minimumVelocity(target), maximumVelocity(target)
 	for vx := min.x; vx <= max.x; vx++ {
 		for vy := min.y; vy <= max.y; vy++ {
 			velocity := Coordinates{vx, vy}
 			probe := Probe{start, velocity}
 			if probe.Hit(target) {
 				velocities = append(velocities, velocity)
-				fmt.Print("x")
-			} else {
-				fmt.Print(".")
 			}
 		}
 	}
-	fmt.Println("Maximum height: ", maxHeight(target))
-	fmt.Println(len(velocities))
+	fmt.Printf("The maximum possible height is %d.\n", maxHeight(target))
+	fmt.Printf("In total, there are %d ways to launch a successful probe.\n", len(velocities))
 }
