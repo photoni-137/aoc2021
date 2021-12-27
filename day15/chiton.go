@@ -41,61 +41,6 @@ func (c Cave) Neighbors(n *Node) (neighbors []*Node) {
 	return
 }
 
-func parseLines(lines []string) (cave Cave) {
-	cave.lenX, cave.lenY = len(lines), len(lines[0])
-	cave.nodes = make(map[Coordinates]*Node)
-	index := 0
-	for x, line := range lines {
-		for y, r := range line {
-			coordinates := Coordinates{x, y}
-			risk, err := strconv.Atoi(string(r))
-			shared.Handle(err)
-			cave.nodes[coordinates] = &Node{
-				coordinates: coordinates,
-				risk:        risk,
-				totalRisk:   MaxInt,
-				index:       index,
-			}
-			index++
-		}
-	}
-	return
-}
-
-func parseAndExtendLines(lines []string, repeat int) (cave Cave) {
-	cave.lenX, cave.lenY = 5*len(lines), 5*len(lines[0])
-	cave.nodes = make(map[Coordinates]*Node)
-	index := 0
-	for x, line := range lines {
-		for y, r := range line {
-			for i := 0; i < repeat; i++ {
-				for j := 0; j < repeat; j++ {
-					coordinates := Coordinates{x + i*len(lines), y + j*len(lines[0])}
-					risk, err := strconv.Atoi(string(r))
-					shared.Handle(err)
-					risk = modify(risk, i+j)
-					cave.nodes[coordinates] = &Node{
-						coordinates: coordinates,
-						risk:        risk,
-						totalRisk:   MaxInt,
-						index:       index,
-					}
-					index++
-				}
-			}
-		}
-	}
-	return
-}
-
-func modify(risk, increase int) (newRisk int) {
-	newRisk = risk + increase
-	if newRisk > 9 {
-		newRisk %= 9
-	}
-	return
-}
-
 func (c Cave) lowestRisk() int {
 	visited := make(map[Coordinates]bool)
 
@@ -128,12 +73,67 @@ func (c Cave) lowestRisk() int {
 	return end.totalRisk
 }
 
+func parseCave(lines []string) (cave Cave) {
+	cave.lenX, cave.lenY = len(lines), len(lines[0])
+	cave.nodes = make(map[Coordinates]*Node)
+	index := 0
+	for x, line := range lines {
+		for y, r := range line {
+			coordinates := Coordinates{x, y}
+			risk, err := strconv.Atoi(string(r))
+			shared.Handle(err)
+			cave.nodes[coordinates] = &Node{
+				coordinates: coordinates,
+				risk:        risk,
+				totalRisk:   MaxInt,
+				index:       index,
+			}
+			index++
+		}
+	}
+	return
+}
+
+func parseAndExtendCave(lines []string, repeat int) (cave Cave) {
+	cave.lenX, cave.lenY = 5*len(lines), 5*len(lines[0])
+	cave.nodes = make(map[Coordinates]*Node)
+	index := 0
+	for x, line := range lines {
+		for y, r := range line {
+			for i := 0; i < repeat; i++ {
+				for j := 0; j < repeat; j++ {
+					coordinates := Coordinates{x + i*len(lines), y + j*len(lines[0])}
+					risk, err := strconv.Atoi(string(r))
+					shared.Handle(err)
+					risk = modifyRisk(risk, i+j)
+					cave.nodes[coordinates] = &Node{
+						coordinates: coordinates,
+						risk:        risk,
+						totalRisk:   MaxInt,
+						index:       index,
+					}
+					index++
+				}
+			}
+		}
+	}
+	return
+}
+
+func modifyRisk(risk, increase int) (newRisk int) {
+	newRisk = risk + increase
+	if newRisk > 9 {
+		newRisk %= 9
+	}
+	return
+}
+
 func main() {
 	lines := shared.ParseInputFile("input.txt")
 
-	cave := parseLines(lines)
-	fmt.Println(cave.lowestRisk())
+	cave := parseCave(lines)
+	fmt.Printf("The safest path through the caves accounts for a total risk of %d.\n", cave.lowestRisk())
 
-	extendedCave := parseAndExtendLines(lines, 5)
-	fmt.Println(extendedCave.lowestRisk())
+	extendedCave := parseAndExtendCave(lines, 5)
+	fmt.Printf("Through the extended caves, we accumulate a total risk of %d.\n", extendedCave.lowestRisk())
 }
