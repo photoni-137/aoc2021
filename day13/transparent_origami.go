@@ -6,99 +6,108 @@ import (
 	"strings"
 )
 
-type Point struct{ x, y int }
-type Paper map[string]int
+type Dot struct{ x, y int }
+
+type Paper map[Dot]int
+
 type Fold struct {
 	direction rune
 	line      int
 }
 
-func (p *Point) Fold(fold Fold) {
+func (d *Dot) Fold(fold Fold) {
 	switch fold.direction {
 	case 'x':
-		if p.x > fold.line {
-			p.x = 2*fold.line - p.x
+		if d.x > fold.line {
+			d.x = 2*fold.line - d.x
 		}
 		return
 	case 'y':
-		if p.y > fold.line {
-			p.y = 2*fold.line - p.y
+		if d.y > fold.line {
+			d.y = 2*fold.line - d.y
 		}
 		return
 	}
 }
 
-func (p Point) ToString() string {
-	return fmt.Sprintf("%d,%d", p.x, p.y)
+func (d Dot) ToString() string {
+	return fmt.Sprintf("%d,%d", d.x, d.y)
 }
 
-func (p Paper) Draw(point Point) {
-	p[point.ToString()]++
+func (p Paper) Draw(d Dot) {
+	p[d]++
 }
 
 func (p Paper) Count() (count int) {
-	for _, points := range p {
-		if points > 0 {
+	for _, dots := range p {
+		if dots > 0 {
 			count++
 		}
 	}
 	return
 }
 
-func parseLines(lines []string) (points []Point, folds []Fold, err error) {
+func parseLines(lines []string) (dots []Dot, folds []Fold) {
 	for _, line := range lines {
-		switch {
-		case strings.Contains(line, ","):
-			var point Point
-			_, err = fmt.Sscanf(line, "%d,%d", &point.x, &point.y)
-			if err != nil {
-				return
-			}
-			points = append(points, point)
-		case strings.Contains(line, "fold along"):
-			var fold Fold
-			_, err = fmt.Sscanf(line, "fold along %c=%d", &fold.direction, &fold.line)
-			if err != nil {
-				return
-			}
-			folds = append(folds, fold)
+		if strings.Contains(line, ",") {
+			dots = append(dots, parseDot(line))
+		} else if strings.Contains(line, "fold along") {
+			folds = append(folds, parseFold(line))
 		}
 	}
 	return
 }
 
-func main() {
-	lines := shared.ParseInputFile("paper.txt")
-	points, folds, err := parseLines(lines)
+func parseDot(line string) (dot Dot) {
+	_, err := fmt.Sscanf(line, "%d,%d", &dot.x, &dot.y)
 	shared.Handle(err)
+	return
+}
 
-	paper := make(Paper)
-	for _, fold := range folds[:1] {
-		for _, point := range points {
-			point.Fold(fold)
-			paper.Draw(point)
-		}
-	}
-	fmt.Println(paper.Count())
+func parseFold(line string) (fold Fold) {
+	_, err := fmt.Sscanf(line, "fold along %c=%d", &fold.direction, &fold.line)
+	shared.Handle(err)
+	return
+}
 
-	for _, fold := range folds {
-		var newPoints []Point
-		for _, point := range points {
-			point.Fold(fold)
-			newPoints = append(newPoints, point)
-		}
-		points = newPoints
-	}
-	var solution [40][8]string
+func prettyPrint(dots []Dot) {
+	var solution [6][39]string
 	for i, row := range solution {
 		for j := range row {
 			solution[i][j] = " "
 		}
 	}
-	for _, point := range points {
-		solution[point.x][point.y] = "x"
+	for _, dot := range dots {
+		solution[dot.y][dot.x] = "x"
 	}
+
+	fmt.Println()
 	for _, row := range solution {
 		fmt.Println(strings.Join(row[:], " "))
 	}
+}
+
+func main() {
+	lines := shared.ParseInputFile("input.txt")
+	dots, folds := parseLines(lines)
+
+	paper := make(Paper)
+	for _, fold := range folds[:1] {
+		for _, dot := range dots {
+			dot.Fold(fold)
+			paper.Draw(dot)
+		}
+	}
+	fmt.Printf("After the first fold, %d distinct dots remain.\n", paper.Count())
+
+	for _, fold := range folds {
+		var newDots []Dot
+		for _, dot := range dots {
+			dot.Fold(fold)
+			newDots = append(newDots, dot)
+		}
+		dots = newDots
+	}
+
+	prettyPrint(dots)
 }
