@@ -7,41 +7,43 @@ import (
 	"strings"
 )
 
-type Pair string
+type AtomPair string
+
 type Polymer struct {
 	start, end string
-	pairs      map[Pair]int
+	pairs      map[AtomPair]int
 }
-type Rules map[Pair]string
+
+type InsertRules map[AtomPair]string
 
 func NewPolymer(s string) Polymer {
 	start, end := string(s[0]), string(s[len(s)-1])
-	pairs := toPairs(s)
+	pairs := stringToPair(s)
 	return Polymer{start, end, pairs}
 }
 
-func toPairs(s string) (pairs map[Pair]int) {
-	pairs = make(map[Pair]int)
+func stringToPair(s string) (pairs map[AtomPair]int) {
+	pairs = make(map[AtomPair]int)
 	for i := range s {
 		if i+1 >= len(s) {
 			return
 		}
-		pair := Pair(s[i : i+2])
+		pair := AtomPair(s[i : i+2])
 		pairs[pair]++
 	}
 	return
 }
 
-func (p Pair) Insert(rules Rules) []Pair {
-	insert := rules[p]
-	return []Pair{
-		Pair(string(p[0]) + insert),
-		Pair(insert + string(p[1])),
+func (ap AtomPair) Insert(rules InsertRules) []AtomPair {
+	insert := rules[ap]
+	return []AtomPair{
+		AtomPair(string(ap[0]) + insert),
+		AtomPair(insert + string(ap[1])),
 	}
 }
 
-func (p Polymer) Build(rules Rules) Polymer {
-	newPairs := make(map[Pair]int)
+func (p Polymer) Build(rules InsertRules) Polymer {
+	newPairs := make(map[AtomPair]int)
 	for pair, count := range p.pairs {
 		for _, newPair := range pair.Insert(rules) {
 			newPairs[newPair] += count
@@ -75,13 +77,13 @@ func (p Polymer) Atoms() map[string]int {
 	return atoms
 }
 
-func parseLines(lines []string) (start Polymer, rules Rules) {
-	rules = make(Rules)
+func parseLines(lines []string) (start Polymer, rules InsertRules) {
+	rules = make(InsertRules)
 	for _, line := range lines {
 		switch {
 		case strings.Contains(line, "->"):
 			items := strings.Split(line, " -> ")
-			pair, insert := Pair(items[0]), items[1]
+			pair, insert := AtomPair(items[0]), items[1]
 			rules[pair] = insert
 		case len(line) > 0:
 			start = NewPolymer(line)
@@ -93,12 +95,13 @@ func parseLines(lines []string) (start Polymer, rules Rules) {
 func main() {
 	lines := shared.ParseInputFile("input.txt")
 	start, rules := parseLines(lines)
+
 	polymer := start
 	for i := 0; i < 40; i++ {
 		if i == 10 {
-			fmt.Println(polymer.Score())
+			fmt.Printf("After %d days, the polymer scores for %d points.\n", i, polymer.Score())
 		}
 		polymer = polymer.Build(rules)
 	}
-	fmt.Println(polymer.Score())
+	fmt.Printf("After %d days, the polymer scores for %d points. Wew lad!\n", 40, polymer.Score())
 }
